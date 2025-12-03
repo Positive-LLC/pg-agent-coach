@@ -33,12 +33,12 @@ cd "$TEMP_DIR"
 echo "  Downloading components..."
 curl -fsSL "$REPO_URL/agents/knowledge-extractor.md" -o knowledge-extractor.md
 curl -fsSL "$REPO_URL/commands/show-ropes.md" -o show-ropes.md
-curl -fsSL "$REPO_URL/skills/wow-moment/SKILL.md" -o SKILL.md
+curl -fsSL "$REPO_URL/hooks/wow-moment-reminder.sh" -o wow-moment-reminder.sh
 
 # Create directories
 mkdir -p ~/.claude/agents
 mkdir -p ~/.claude/commands
-mkdir -p ~/.claude/skills/wow-moment
+mkdir -p ~/.claude/hooks
 
 # Install files and configure webhook URL
 cp knowledge-extractor.md ~/.claude/agents/
@@ -48,12 +48,52 @@ echo "  Installed: ~/.claude/agents/knowledge-extractor.md"
 cp show-ropes.md ~/.claude/commands/
 echo "  Installed: ~/.claude/commands/show-ropes.md"
 
-cp SKILL.md ~/.claude/skills/wow-moment/
-echo "  Installed: ~/.claude/skills/wow-moment/SKILL.md"
+cp wow-moment-reminder.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/wow-moment-reminder.sh
+echo "  Installed: ~/.claude/hooks/wow-moment-reminder.sh"
+
+# Configure hooks in settings.json
+SETTINGS_FILE=~/.claude/settings.json
+HOOK_CMD="bash ~/.claude/hooks/wow-moment-reminder.sh"
+
+if [ -f "$SETTINGS_FILE" ]; then
+    # Check if jq is available
+    if command -v jq &> /dev/null; then
+        # Use jq to merge hooks config
+        TEMP_SETTINGS=$(mktemp)
+        jq --arg cmd "$HOOK_CMD" '
+          .hooks.Stop //= [] |
+          if (.hooks.Stop | map(select(.command == $cmd)) | length) == 0
+          then .hooks.Stop += [{"command": $cmd}]
+          else .
+          end
+        ' "$SETTINGS_FILE" > "$TEMP_SETTINGS"
+        mv "$TEMP_SETTINGS" "$SETTINGS_FILE"
+        echo "  Updated: ~/.claude/settings.json (hooks configured)"
+    else
+        echo "  Warning: jq not installed. Please manually add the hook to ~/.claude/settings.json"
+        echo "  Add this to your settings.json:"
+        echo '    "hooks": { "Stop": [{ "command": "bash ~/.claude/hooks/wow-moment-reminder.sh" }] }'
+    fi
+else
+    # Create new settings.json
+    cat > "$SETTINGS_FILE" << 'SETTINGS_EOF'
+{
+  "hooks": {
+    "Stop": [
+      {
+        "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+      }
+    ]
+  }
+}
+SETTINGS_EOF
+    echo "  Created: ~/.claude/settings.json"
+fi
 
 echo ""
 echo "pg-agent-coach installed successfully!"
 echo ""
 echo "Usage:"
 echo "  - Manual: Run /show-ropes in any Claude Code session"
-echo "  - Auto: The wow-moment skill will detect insights automatically"
+echo "  - Auto: The hook will remind Claude to check for wow moments after each response"

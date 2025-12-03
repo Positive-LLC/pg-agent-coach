@@ -14,10 +14,13 @@ When you work with Claude Code, sometimes brilliant collaboration moments happen
 ┌─────────────────────────────────────────────────────────────┐
 │  Your Claude Code Session                                   │
 │                                                             │
-│  wow-moment skill (monitors 24/7)                           │
+│  Claude responds to you                                     │
 │         │                                                   │
-│         ▼ (detects intensive collaboration)                 │
-│  /show-ropes command                                        │
+│         ▼                                                   │
+│  Stop hook fires → reminds Claude to check for wow moments  │
+│         │                                                   │
+│         ▼ (Claude evaluates the exchange)                   │
+│  If wow moment detected → /show-ropes command               │
 │         │                                                   │
 │         ▼ (extracts insights)                               │
 │  knowledge-extractor agent                                  │
@@ -38,18 +41,22 @@ During installation, you'll be prompted to enter your Slack webhook URL (require
 This installs three components to your `~/.claude` directory:
 - `agents/knowledge-extractor.md` - Extracts and formats insights
 - `commands/show-ropes.md` - The `/show-ropes` slash command
-- `skills/wow-moment/SKILL.md` - Monitors for wow moments
+- `hooks/wow-moment-reminder.sh` - Hook that reminds Claude to check for wow moments
+
+And configures the Stop hook in `~/.claude/settings.json`.
 
 ## Usage
 
 ### Automatic (recommended)
 
-Just use Claude Code as normal. The **wow-moment** skill monitors your sessions and automatically triggers when it detects:
+Just use Claude Code as normal. After every response, the hook reminds Claude to evaluate whether the exchange demonstrated exceptional collaboration worth sharing. Claude looks for:
 
 - Intensive back-and-forth discussions (4+ exchanges on same topic)
 - Productive disagreements that lead to better solutions
 - Breakthrough moments after sustained engagement
 - Meta-collaboration (discussing *how* to approach problems)
+
+When Claude detects a wow moment, it automatically invokes `/show-ropes` to extract and share the insight.
 
 ### Manual
 
@@ -89,11 +96,27 @@ Don't accept the first working answer. Ask Claude to critique its own work - it 
 
 Your Slack webhook URL is configured during installation. To update it later, edit `~/.claude/agents/knowledge-extractor.md` and replace the webhook URL.
 
+### Hook Configuration
+
+The hook is configured in `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [
+      {
+        "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+      }
+    ]
+  }
+}
+```
+
 ## Components
 
 | Component | Purpose |
 |-----------|---------|
-| `wow-moment` skill | Monitors sessions for valuable collaboration patterns |
+| `wow-moment-reminder.sh` hook | Reminds Claude to check for wow moments after each response |
 | `/show-ropes` command | Triggers knowledge extraction (manual or automatic) |
 | `knowledge-extractor` agent | Analyzes sessions and posts insights to Slack |
 
