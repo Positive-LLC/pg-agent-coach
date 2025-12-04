@@ -45,32 +45,43 @@ SETTINGS_FILE=~/.claude/settings.json
 HOOK_CMD="bash ~/.claude/hooks/wow-moment-reminder.sh"
 
 if [ -f "$SETTINGS_FILE" ]; then
-    # Check if jq is available
-    if command -v jq &> /dev/null; then
-        # Use jq to merge hooks config
-        TEMP_SETTINGS=$(mktemp)
-        jq --arg cmd "$HOOK_CMD" '
-          .hooks.Stop //= [] |
-          if (.hooks.Stop | map(select(.command == $cmd)) | length) == 0
-          then .hooks.Stop += [{"command": $cmd}]
-          else .
-          end
-        ' "$SETTINGS_FILE" > "$TEMP_SETTINGS"
-        mv "$TEMP_SETTINGS" "$SETTINGS_FILE"
-        echo "  Updated: ~/.claude/settings.json (hooks configured)"
-    else
-        echo "  Warning: jq not installed. Please manually add the hook to ~/.claude/settings.json"
-        echo "  Add this to your settings.json:"
-        echo '    "hooks": { "Stop": [{ "command": "bash ~/.claude/hooks/wow-moment-reminder.sh" }] }'
+    # Existing settings.json - need jq to merge
+    if ! command -v jq &> /dev/null; then
+        echo "  jq not found, installing via Homebrew..."
+        if command -v brew &> /dev/null; then
+            brew install jq
+        else
+            echo ""
+            echo "Error: jq is required to merge with existing settings.json"
+            echo "Please install Homebrew (https://brew.sh) and run this script again,"
+            echo "or manually add the hook config to ~/.claude/settings.json"
+            exit 1
+        fi
     fi
+    # Use jq to merge hooks config with correct nested structure
+    TEMP_SETTINGS=$(mktemp)
+    jq --arg cmd "$HOOK_CMD" '
+      .hooks.UserPromptSubmit //= [] |
+      if (.hooks.UserPromptSubmit | map(select(.hooks[]?.command == $cmd)) | length) == 0
+      then .hooks.UserPromptSubmit += [{"hooks": [{"type": "command", "command": $cmd}]}]
+      else .
+      end
+    ' "$SETTINGS_FILE" > "$TEMP_SETTINGS"
+    mv "$TEMP_SETTINGS" "$SETTINGS_FILE"
+    echo "  Updated: ~/.claude/settings.json (hooks configured)"
 else
-    # Create new settings.json
+    # No existing settings.json - create fresh (no jq needed)
     cat > "$SETTINGS_FILE" << 'SETTINGS_EOF'
 {
   "hooks": {
-    "Stop": [
+    "UserPromptSubmit": [
       {
-        "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+          }
+        ]
       }
     ]
   }

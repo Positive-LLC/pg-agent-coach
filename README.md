@@ -14,12 +14,12 @@ When you work with Claude Code, sometimes brilliant collaboration moments happen
 ┌─────────────────────────────────────────────────────────────┐
 │  Your Claude Code Session                                   │
 │                                                             │
-│  Claude responds to you                                     │
+│  You send a message                                         │
 │         │                                                   │
 │         ▼                                                   │
-│  Stop hook fires → reminds Claude to check for wow moments  │
+│  UserPromptSubmit hook fires → reminder injected to Claude  │
 │         │                                                   │
-│         ▼ (Claude evaluates the exchange)                   │
+│         ▼ (Claude processes with reminder in context)       │
 │  If wow moment detected → /show-ropes command               │
 │         │                                                   │
 │         ▼ (extracts insights)                               │
@@ -43,13 +43,13 @@ This installs three components to your `~/.claude` directory:
 - `commands/show-ropes.md` - The `/show-ropes` slash command
 - `hooks/wow-moment-reminder.sh` - Hook that reminds Claude to check for wow moments
 
-And configures the Stop hook in `~/.claude/settings.json`.
+And configures the UserPromptSubmit hook in `~/.claude/settings.json`.
 
 ## Usage
 
 ### Automatic (recommended)
 
-Just use Claude Code as normal. After every response, the hook reminds Claude to evaluate whether the exchange demonstrated exceptional collaboration worth sharing. Claude looks for:
+Just use Claude Code as normal. Before processing each message, the hook injects a reminder into Claude's context to evaluate whether the exchange demonstrated exceptional collaboration worth sharing. Claude looks for:
 
 - Intensive back-and-forth discussions (4+ exchanges on same topic)
 - Productive disagreements that lead to better solutions
@@ -103,20 +103,27 @@ The hook is configured in `~/.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "Stop": [
+    "UserPromptSubmit": [
       {
-        "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/wow-moment-reminder.sh"
+          }
+        ]
       }
     ]
   }
 }
 ```
 
+**Why UserPromptSubmit?** Only `UserPromptSubmit` and `SessionStart` hooks inject their stdout into Claude's context. Other hook types (like `Stop`) only display output in verbose mode.
+
 ## Components
 
 | Component | Purpose |
 |-----------|---------|
-| `wow-moment-reminder.sh` hook | Reminds Claude to check for wow moments after each response |
+| `wow-moment-reminder.sh` hook | Injects wow-moment reminder into Claude's context before each response |
 | `/show-ropes` command | Triggers knowledge extraction (manual or automatic) |
 | `knowledge-extractor` agent | Analyzes sessions and posts insights to Slack |
 
